@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sakhi-sky: #87CEEB;
+  --color-sakhi-sky-light: #B8E4F9;
+  --color-sakhi-pink: #FF8FAB;
+  --color-sakhi-pink-light: #FFB8C9;
+  --color-sakhi-yellow: #FFD93D;
+  --color-sakhi-yellow-light: #FFE88A;
+  --color-sakhi-purple: #C084FC;
+  --color-sakhi-purple-light: #DDB4FE;
+  --color-sakhi-green: #6BCB77;
+  --color-sakhi-bg: #0F172A;
+  --color-sakhi-card: #1E293B;
+  --color-sakhi-text: #F8FAFC;
+  --color-sakhi-muted: #94A3B8;
+
+  --font-nunito: "Nunito", sans-serif;
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-nunito);
+  background: var(--color-sakhi-bg);
+  color: var(--color-sakhi-text);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Animated gradient background */
+.sakhi-bg-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--color-sakhi-bg) 0%,
+    #1a1a3e 25%,
+    #1e293b 50%,
+    #1a1a3e 75%,
+    var(--color-sakhi-bg) 100%
+  );
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Floating stars / sparkles for kids */
+.sparkle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-sakhi-yellow);
+  opacity: 0;
+  animation: sparkle-float 4s ease-in-out infinite;
+}
+
+@keyframes sparkle-float {
+  0%, 100% { opacity: 0; transform: translateY(0) scale(0.5); }
+  50% { opacity: 1; transform: translateY(-20px) scale(1); }
+}
+
+/* Pulsing mic glow */
+.mic-glow {
+  box-shadow:
+    0 0 20px rgba(255, 143, 171, 0.4),
+    0 0 40px rgba(255, 143, 171, 0.2),
+    0 0 60px rgba(255, 143, 171, 0.1);
+}
+
+.mic-glow-active {
+  box-shadow:
+    0 0 30px rgba(107, 203, 119, 0.6),
+    0 0 60px rgba(107, 203, 119, 0.3),
+    0 0 90px rgba(107, 203, 119, 0.15);
+}
+
+/* Card glass effect */
+.glass-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Input styling */
+input, select {
+  font-family: var(--font-nunito);
+}
