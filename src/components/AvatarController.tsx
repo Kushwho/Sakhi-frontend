@@ -16,13 +16,17 @@ export function AvatarController({ onExpressionChange }: AvatarControllerProps) 
 
     useEffect(() => {
         if (!localParticipant) return;
-
         localParticipant.registerRpcMethod(
-            "setAvatarExpression",
+            "setEmotionState",
             async (data: { payload: string }) => {
                 try {
                     const parsed = JSON.parse(data.payload);
                     const expression = parsed.expression ?? "happy";
+
+                    if (parsed.raw_emotion) {
+                        console.log(`Emotion detected: ${parsed.raw_emotion} (${parsed.score}). Updating expression to: ${expression}`);
+                    }
+
                     onExpressionChange(expression);
                     return "Expression updated";
                 } catch (err) {

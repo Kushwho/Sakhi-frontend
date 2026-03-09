@@ -50,11 +50,11 @@ Generates a LiveKit JWT token scoped to a specific room, embedding the child's p
 
 ## 2. Remote Procedure Calls (RPC)
 
-The Python Voice Agent calls RPC methods on the frontend to trigger UI changes, specifically 3D avatar animations.
+The Sakhi Emotion Detector (a hidden programmatic participant) calls RPC methods on the frontend to trigger UI changes, specifically 3D avatar animations based on the child's voice tone (prosody).
 
-### `setAvatarExpression` (Backend -> Frontend)
+### `setEmotionState` (Backend -> Frontend)
 
-The agent calls this method on the frontend participant when the avatar's facial expression needs to change to match the conversation.
+The emotion detector calls this method on the frontend participant approximately every 3 seconds while the child is speaking. It uses the Hume Streaming API to analyze the audio and maps the top detected emotion to a corresponding avatar expression.
 
 **Registered via:** `@livekit/components-react` `useLocalParticipant().localParticipant.registerRpcMethod(...)`
 
@@ -64,9 +64,15 @@ The agent sends a stringified JSON object. You must `JSON.parse()` it.
 
 ```json
 {
-  "expression": "string"
+  "expression": "happy",
+  "raw_emotion": "Joy",
+  "score": 0.954
 }
 ```
+
+- `expression`: The mapped avatar expression to trigger on the frontend.
+- `raw_emotion`: The exact emotion name returned by Hume (e.g., "Joy", "Anxiety", "Confusion").
+- `score`: The confidence score (0.0 to 1.0) of that emotion.
 
 **Supported `expression` values:**
 *   `happy`
@@ -77,7 +83,7 @@ The agent sends a stringified JSON object. You must `JSON.parse()` it.
 *   `celebrating`
 
 **Expected Frontend Return:**
-The RPC expects a response string to confirm receipt (e.g., `"Expression updated on frontend"`). If the frontend does not respond within 5 seconds, the agent logs a warning but continues speaking.
+The RPC does not require a specific return value, but returning an empty string or `"ok"` is good practice.
 
 **Example Frontend Listener (React):**
 
@@ -91,12 +97,12 @@ export function AvatarController() {
   useEffect(() => {
     if (!localParticipant) return;
     
-    localParticipant.registerRpcMethod("setAvatarExpression", async (data) => {
+    localParticipant.registerRpcMethod("setEmotionState", async (data) => {
       // 1. Data payload is a stringified JSON object
       const payload = JSON.parse(data.payload);
       const newExpression = payload.expression;
       
-      console.log("Agent requested expression:", newExpression);
+      console.log(`Emotion detected: ${payload.raw_emotion} (${payload.score}). Updating expression to: ${newExpression}`);
       
       // 2. TODO: Trigger your 3D Avatar (Three.js/React Three Fiber) animation here
       // e.g. playAnimation(newExpression)

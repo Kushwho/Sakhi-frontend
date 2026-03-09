@@ -99,3 +99,26 @@ body {
 input, select {
   font-family: var(--font-nunito);
 }
+
+/* Auth form inputs */
+.auth-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-sakhi-text);
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: var(--font-nunito);
+}
+
+.auth-input::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.auth-input:focus {
+  border-color: var(--color-sakhi-purple);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.2);
+}

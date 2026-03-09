@@ -24,17 +24,18 @@ export default function AgentPage() {
     const router = useRouter();
     const [session, setSession] = useState<SessionData | null>(null);
     const [expression, setExpression] = useState("happy");
+    const [isNonDistractMode, setIsNonDistractMode] = useState(false);
 
     useEffect(() => {
         const raw = sessionStorage.getItem("sakhi_session");
         if (!raw) {
-            router.replace("/");
+            router.replace("/profiles");
             return;
         }
         try {
             setSession(JSON.parse(raw));
         } catch {
-            router.replace("/");
+            router.replace("/profiles");
         }
     }, [router]);
 
@@ -56,7 +57,7 @@ export default function AgentPage() {
             token={session.token}
             connect={true}
             audio={true}
-            className="sakhi-bg-gradient relative flex min-h-dvh flex-col"
+            className={`sakhi-bg-gradient relative flex min-h-dvh flex-col transition-all duration-700 ${isNonDistractMode ? 'grayscale' : ''}`}
         >
             {/* Invisible audio renderer – plays the agent's voice */}
             <RoomAudioRenderer />
@@ -71,16 +72,41 @@ export default function AgentPage() {
                     whileTap={{ scale: 0.9 }}
                     onClick={() => {
                         sessionStorage.removeItem("sakhi_session");
-                        router.replace("/");
+                        router.replace("/profiles");
                     }}
                     className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-sm font-[700] text-sakhi-muted backdrop-blur transition-colors hover:bg-white/10 hover:text-sakhi-text"
                 >
                     <ArrowLeft className="h-4 w-4" />
                     Back
                 </motion.button>
-                <div className="flex items-center gap-2 text-sm font-[700] text-sakhi-muted">
-                    <Sparkles className="h-4 w-4 text-sakhi-yellow" />
-                    <span>Talking to {session.child_name}</span>
+
+                <div className="flex items-center gap-4">
+                    <div className="hidden items-center gap-2 text-sm font-[700] text-sakhi-muted sm:flex">
+                        <Sparkles className="h-4 w-4 text-sakhi-yellow" />
+                        <span>Talking to {session.child_name}</span>
+                    </div>
+
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsNonDistractMode((prev) => !prev)}
+                        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-[700] backdrop-blur transition-colors ${isNonDistractMode
+                                ? "bg-white/20 text-white"
+                                : "bg-white/5 text-sakhi-muted hover:bg-white/10 hover:text-sakhi-text"
+                            }`}
+                        title="Toggle Zen Mode (Grayscale)"
+                    >
+                        <div
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${isNonDistractMode ? "bg-sakhi-text/50" : "bg-white/20"
+                                }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${isNonDistractMode ? "translate-x-4" : "translate-x-1"
+                                    }`}
+                            />
+                        </div>
+                        <span className="hidden sm:inline">Zen Mode</span>
+                    </motion.button>
                 </div>
             </header>
 
