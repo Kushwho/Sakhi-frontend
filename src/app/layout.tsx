@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { Nunito } from "next/font/google";
+import { Nunito, Geist } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers.tsx";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const nunito = Nunito({
     subsets: ["latin"],
@@ -21,7 +24,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang="en" className={cn("font-sans", geist.variable)}>
             <body className={`${nunito.variable} font-[family-name:var(--font-nunito)] antialiased`}>
                 <Providers>{children}</Providers>
             </body>
