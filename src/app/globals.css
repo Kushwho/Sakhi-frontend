@@ -122,3 +122,38 @@ input, select {
   border-color: var(--color-sakhi-purple);
   box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.2);
 }
+
+/* Story mode – book glow */
+.story-glow {
+  box-shadow:
+    0 0 30px rgba(192, 132, 252, 0.3),
+    0 0 60px rgba(192, 132, 252, 0.15),
+    0 0 90px rgba(135, 206, 235, 0.1);
+}
+
+/* Story mode – floating book animation */
+@keyframes book-float {
+  0%, 100% { transform: translateY(0px) rotate(-1deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+}
+
+.book-float {
+  animation: book-float 4s ease-in-out infinite;
+}
+
+/* Story mode – page turn shimmer */
+@keyframes page-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.page-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: page-shimmer 3s ease-in-out infinite;
+}

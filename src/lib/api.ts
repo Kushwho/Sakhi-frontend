@@ -203,3 +203,76 @@ export async function fetchDashboardData(profileId: string, profileToken: string
         alerts: alertsData as AlertsData,
     };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Story API Helpers                                                 */
+/* ------------------------------------------------------------------ */
+
+export type Story = {
+    id: string;
+    title: string;
+    genre: string;
+    age_min: number;
+    age_max: number;
+    total_segments: number;
+};
+
+export type StoryTokenData = {
+    token: string;
+    room_name: string;
+    livekit_url: string;
+};
+
+/**
+ * Fetch a random story matching the given genre.
+ * Returns null if no stories match (404).
+ */
+export async function fetchRandomStory(
+    genre: string,
+    profileToken: string
+): Promise<Story | null> {
+    const params = genre ? `?genre=${encodeURIComponent(genre)}` : "";
+    const res = await apiFetch(`/api/stories/random${params}`, {
+        tokenSource: "profile",
+        profileToken,
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Failed to fetch random story");
+    return res.json();
+}
+
+/**
+ * List all available stories, optionally filtered.
+ */
+export async function fetchStories(
+    profileToken: string,
+    genre?: string
+): Promise<{ stories: Story[]; total: number }> {
+    const params = genre ? `?genre=${encodeURIComponent(genre)}` : "";
+    const res = await apiFetch(`/api/stories${params}`, {
+        tokenSource: "profile",
+        profileToken,
+    });
+    if (!res.ok) throw new Error("Failed to fetch stories");
+    return res.json();
+}
+
+/**
+ * Request a LiveKit story-session token for a confirmed story.
+ */
+export async function fetchStoryToken(
+    storyId: string,
+    profileToken: string
+): Promise<StoryTokenData> {
+    const res = await apiFetch("/api/story-token", {
+        method: "POST",
+        tokenSource: "profile",
+        profileToken,
+        body: JSON.stringify({ story_id: storyId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to start story session");
+    }
+    return res.json();
+}
