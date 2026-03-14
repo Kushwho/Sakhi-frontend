@@ -3,35 +3,38 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Lightbulb, TrendingUp, TrendingDown, Clock, Calendar, CheckCircle2, ChevronDown, BookOpen } from "lucide-react";
+import { Flame, Smile, Clock, Bell, Home, BarChart3, Settings, HelpCircle, Plus } from "lucide-react";
 import { useAuth, type Profile } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import { fetchDashboardData, type TimeSpentData, type MoodData, type TopicsData, type StreakData, type AlertsData } from "@/lib/api";
+import { MobileShell } from "@/components/ui/MobileShell";
+import Image from "next/image";
+
+/* ── Topic emoji mapping ── */
+const TOPIC_EMOJIS: Record<string, string> = {
+    animals: "🦁", numbers: "🔢", colors: "🎨", space: "🚀",
+    science: "🔬", math: "➕", reading: "📚", music: "🎵",
+    nature: "🌿", history: "📜", art: "🖼️", sports: "⚽",
+    food: "🍕", geography: "🌍", language: "💬", coding: "💻",
+};
+
+function getTopicEmoji(topic: string): string {
+    const lower = topic.toLowerCase();
+    return TOPIC_EMOJIS[lower] || "✨";
+}
 
 export default function DashboardPage() {
     const router = useRouter();
     const { isLoggedIn, profiles, ready } = useAuth();
     const { profileToken } = useProfile();
-    
-    // The parent might have multiple children.
+
     const childProfiles = profiles.filter(p => p.type === "child");
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
-    // Initial logic to set default child and enforce auth bounds
     useEffect(() => {
         if (!ready) return;
-        
-        if (!isLoggedIn) {
-            router.push("/login");
-            return;
-        }
-        
-        // If the user refreshed the page, profileToken is gone. Send them back to Profile picker
-        if (!profileToken) {
-            router.push("/profiles");
-            return;
-        }
-
+        if (!isLoggedIn) { router.push("/login"); return; }
+        if (!profileToken) { router.push("/profiles"); return; }
         if (childProfiles.length > 0 && !selectedChildId) {
             setSelectedChildId(childProfiles[0].id);
         }
@@ -39,20 +42,17 @@ export default function DashboardPage() {
 
     const activeChild = childProfiles.find(p => p.id === selectedChildId);
 
-    // Dashboard Data States
+    // Dashboard data
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    
     const [timeSpent, setTimeSpent] = useState<TimeSpentData | null>(null);
     const [mood, setMood] = useState<MoodData | null>(null);
     const [topics, setTopics] = useState<TopicsData | null>(null);
     const [streak, setStreak] = useState<StreakData | null>(null);
     const [alerts, setAlerts] = useState<AlertsData | null>(null);
 
-    // Fetch dashboard data
     useEffect(() => {
         if (!selectedChildId || !profileToken) return;
-
         let isMounted = true;
         setLoading(true);
         setError("");
@@ -60,7 +60,6 @@ export default function DashboardPage() {
         async function fetchAll() {
             try {
                 const data = await fetchDashboardData(selectedChildId!, profileToken!);
-
                 if (isMounted) {
                     setTimeSpent(data.timeSpent);
                     setMood(data.mood);
@@ -69,327 +68,276 @@ export default function DashboardPage() {
                     setAlerts(data.alerts);
                 }
             } catch (err: unknown) {
-                if (isMounted) {
-                    setError(err instanceof Error ? err.message : "Failed to fetch dashboard data");
-                }
+                if (isMounted) setError(err instanceof Error ? err.message : "Failed to load data");
             } finally {
                 if (isMounted) setLoading(false);
             }
         }
-
         fetchAll();
+        return () => { isMounted = false; };
+    }, [selectedChildId, profileToken]);
 
-        return () => {
-            isMounted = false;
-        };
-    }, [selectedChildId]);
+    // Recent mood
+    const recentMood = useMemo(() => {
+        if (!mood?.summaries?.length) return "Happy";
+        return mood.summaries[0].mood || "Happy";
+    }, [mood]);
 
-    // Data processing for charts
-    const chartBars = useMemo(() => {
-        if (!timeSpent?.daily) return [];
-        
-        // Ensure we have a 7-day structure, mapping the data
-        const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // simplified standard week
-        
-        // This is a simplified mapping that just takes the last 7 days provided by the API
-        // In a strictly correct implementation, we'd map dates to correct weekdays.
-        return days.map((label, i) => {
-            const dataPoint = timeSpent.daily[timeSpent.daily.length - 7 + i] || { minutes: 0 };
-            
-            // Assuming max minutes in a day for scaling visually is 60m (1 hour)
-            const visualHeight = Math.min((dataPoint.minutes / 60) * 100, 100);
-            
-            return {
-                label,
-                active: visualHeight,
-                minutes: dataPoint.minutes
-            };
-        });
-    }, [timeSpent]);
+    const alertCount = useMemo(() => {
+        return alerts?.alerts?.filter(a => !a.dismissed).length || 0;
+    }, [alerts]);
 
-    // Format topics for the breakdown
     const topTopics = useMemo(() => {
         if (!topics?.topics) return [];
-        // Map the topic counts to a visual percentage (relative to the max count)
-        const sorted = [...topics.topics].sort((a, b) => b.count - a.count).slice(0, 5);
-        const maxCount = sorted.length > 0 ? sorted[0].count : 1;
-        
-        const colors = ["bg-emerald-400", "bg-indigo-400", "bg-amber-500", "bg-orange-500", "bg-rose-400"];
-        
-        return sorted.map((t, i) => ({
-            name: t.name.charAt(0).toUpperCase() + t.name.slice(1), // capitalize
-            score: Math.round((t.count / maxCount) * 100), // relative percentage
-            rawCount: t.count,
-            color: colors[i % colors.length]
-        }));
+        return [...topics.topics].sort((a, b) => b.count - a.count).slice(0, 6);
     }, [topics]);
 
-    const activeAlert = alerts?.alerts?.[0]; // Show the most recent alert
+    // Summary text
+    const summaryText = useMemo(() => {
+        if (!activeChild) return "";
+        const childName = activeChild.display_name;
+        if (!mood?.summaries?.length) return `${childName} is ready for a new adventure! 🌟`;
+        return `${childName} had a great chat session today 💛`;
+    }, [activeChild, mood]);
 
-    if (!ready || loading && !timeSpent) {
+    const summaryDetail = useMemo(() => {
+        if (!topics?.topics?.length) return "Start a conversation to see insights here!";
+        const topNames = topTopics.slice(0, 2).map(t => t.name).join(" and ");
+        return `Exploring more complex sentences and showing great curiosity about ${topNames}!`;
+    }, [topics, topTopics]);
+
+    const [activeNav, setActiveNav] = useState("home");
+
+    if (!ready || (loading && !timeSpent)) {
         return (
-            <main className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-                 <motion.div
+            <MobileShell className="flex items-center justify-center">
+                <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
                     className="h-10 w-10 rounded-full border-4 border-sakhi-purple/30 border-t-sakhi-purple"
                 />
-            </main>
+            </MobileShell>
         );
     }
 
     if (childProfiles.length === 0) {
         return (
-             <main className="min-h-screen bg-[#0F172A] text-slate-100 p-8 flex flex-col items-center justify-center">
-                 <h2 className="text-xl font-bold mb-4">No child profiles found.</h2>
-                 <button 
-                     onClick={() => router.push('/setup')}
-                     className="bg-sakhi-purple px-6 py-2 rounded-xl font-bold"
-                 >
-                     Add a Child Profile
-                 </button>
-             </main>
+            <MobileShell className="flex flex-col items-center justify-center px-6">
+                <h2 className="text-xl font-[800] text-sakhi-text mb-4">No child profiles found.</h2>
+                <button
+                    onClick={() => router.push("/setup")}
+                    className="sakhi-btn-primary px-6 py-3 text-base"
+                >
+                    Add a Child Profile
+                </button>
+            </MobileShell>
         );
     }
 
     return (
-        <main className="min-h-screen bg-[#0F172A] text-slate-100 p-8 font-['Nunito',sans-serif]">
-            <div className="max-w-5xl mx-auto space-y-6">
-                
-                {/* Header section */}
-                <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative h-14 w-14 overflow-hidden rounded-full bg-gradient-to-tr from-orange-300 to-yellow-300 flex items-center justify-center p-1">
-                            <div className="h-full w-full rounded-full bg-yellow-100 flex items-center justify-center text-2xl">
-                                👦🏼
-                            </div>
-                        </div>
-                        <div>
-                            {childProfiles.length > 1 ? (
-                                <div className="relative group">
-                                    <select 
-                                        className="appearance-none bg-transparent text-2xl font-bold tracking-tight text-white pr-8 focus:outline-none cursor-pointer"
-                                        value={selectedChildId || ""}
-                                        onChange={(e) => setSelectedChildId(e.target.value)}
-                                    >
-                                        {childProfiles.map(p => (
-                                            <option key={p.id} value={p.id} className="bg-slate-800 text-sm">
-                                                {p.display_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-                                </div>
-                            ) : (
-                                <h1 className="text-2xl font-bold tracking-tight text-white">{activeChild?.display_name || "Child"}</h1>
+        <MobileShell bg="none" className="flex flex-col bg-[#F0F4F8] pb-20">
+            {/* ── Header ── */}
+            <header className="flex items-center justify-between px-5 pt-5 pb-3">
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-full bg-sakhi-purple">
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                        <div className="h-2 w-2 rounded-full bg-white ml-0.5" />
+                    </div>
+                    <span className="text-lg font-[800] text-sakhi-text">Sakhi</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Image
+                        src="/sakhi-penguin.png"
+                        alt="Sakhi"
+                        width={36}
+                        height={36}
+                        className="rounded-full"
+                    />
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-sakhi-orange to-sakhi-yellow flex items-center justify-center text-xs font-[800] text-white">
+                        👤
+                    </div>
+                </div>
+            </header>
+
+            {/* ── Child Selector ── */}
+            <div className="px-5 pb-4">
+                <p className="text-xs font-[800] tracking-wider text-sakhi-muted uppercase mb-2">
+                    Viewing Activity For
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {childProfiles.map(child => (
+                        <button
+                            key={child.id}
+                            onClick={() => setSelectedChildId(child.id)}
+                            className={`rounded-full px-4 py-1.5 text-sm font-[700] transition-all ${
+                                selectedChildId === child.id
+                                    ? "bg-sakhi-purple text-white shadow-md"
+                                    : "bg-white text-sakhi-text border border-gray-200"
+                            }`}
+                        >
+                            {selectedChildId === child.id && (
+                                <span className="inline-block h-2 w-2 rounded-full bg-white mr-1.5" />
                             )}
-                            <p className="text-sm font-semibold text-slate-400">
-                                {activeChild?.age ? `Age ${activeChild.age}` : "No age set"}
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                        <div className="flex gap-1.5">
-                            <div className="h-2 w-2 rounded-full bg-emerald-400"></div>
-                            <div className="h-2 w-2 rounded-full bg-emerald-400"></div>
-                            <div className="h-2 w-2 rounded-full bg-orange-400"></div>
-                        </div>
-                        <div className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-300 border border-slate-700/50">
-                            Learning Streak: {streak?.current_streak || 0} 🔥
-                        </div>
-                    </div>
-                </header>
-
-                {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl font-semibold text-sm">
-                        {error}
-                    </div>
-                )}
-
-                {/* 3 Top Cards (Adapted to API Data) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Time Spent */}
-                    <div className="rounded-2xl bg-[#1E293B] p-6 border border-slate-700/50 shadow-sm relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 opacity-50"></div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-sm font-extrabold tracking-wider text-slate-400">TIME WITH SAKHI</h2>
-                            <span className="rounded-full bg-emerald-500/10 p-2 text-emerald-400"><Clock className="h-4 w-4" /></span>
-                        </div>
-                        <div className="mb-1 text-emerald-400">
-                            <span className="text-5xl font-black font-serif">
-                                {Math.floor((timeSpent?.total_minutes || 0) / 60)}
-                            </span>
-                            <span className="text-2xl font-bold ml-1">h</span>
-                            <span className="text-5xl font-black font-serif ml-2">
-                                {Math.round(timeSpent?.total_minutes || 0) % 60}
-                            </span>
-                            <span className="text-2xl font-bold ml-1">m</span>
-                        </div>
-                        <p className="text-sm font-semibold text-slate-400 mb-6 mt-2">Total session time</p>
-                        <p className="text-sm font-bold text-emerald-400 flex items-center gap-1">
-                            <TrendingUp className="h-4 w-4" /> 
-                            {timeSpent?.daily?.[timeSpent.daily.length - 1]?.minutes?.toFixed(1) || 0}m in last session
-                        </p>
-                    </div>
-
-                    {/* Streak */}
-                    <div className="rounded-2xl bg-[#1E293B] p-6 border border-slate-700/50 shadow-sm relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-amber-500 opacity-50"></div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-sm font-extrabold tracking-wider text-slate-400">CURRENT STREAK</h2>
-                            <span className="rounded-full bg-orange-500/10 p-2 text-orange-400"><Calendar className="h-4 w-4" /></span>
-                        </div>
-                        <div className="mb-1 text-orange-400">
-                            <span className="text-5xl font-black font-serif">{streak?.current_streak || 0}</span>
-                            <span className="text-xl font-bold ml-2">days</span>
-                        </div>
-                        <p className="text-sm font-semibold text-slate-400 mb-6 mt-2">Active learning days</p>
-                        <p className="text-sm font-bold text-emerald-400 flex items-center gap-1">
-                            <TrendingUp className="h-4 w-4" /> Longest: {streak?.longest_streak || 0} days
-                        </p>
-                    </div>
-
-                    {/* Tops Topics & Mood */}
-                    <div className="rounded-2xl bg-[#1E293B] p-6 border border-slate-700/50 shadow-sm relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-400 to-blue-500 opacity-50"></div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-sm font-extrabold tracking-wider text-slate-400">RECENT MOOD</h2>
-                            <span className="rounded-full bg-sky-500/10 p-2 text-sky-400"><CheckCircle2 className="h-4 w-4" /></span>
-                        </div>
-                        <div className="mb-1 h-14 overflow-hidden">
-                             <p className="text-sm font-bold text-slate-200 line-clamp-3 leading-snug">
-                                {mood?.summaries?.[0]?.mood || "Not enough data for mood summary yet."}
-                             </p>
-                        </div>
-                        <p className="text-xs font-semibold text-slate-400 mb-4 mt-2 border-t border-slate-700/50 pt-3">
-                            Top emotion detected: {
-                                mood?.emotion_distribution?.[0] ? 
-                                `${mood.emotion_distribution[0].emotion} (${mood.emotion_distribution[0].count})` : "N/A"
-                            }
-                        </p>
-                        <p className="text-xs font-bold text-sky-400 flex items-center gap-1">
-                            <BookOpen className="h-3 w-3" /> {topics?.total_unique || 0} unique topics explored
-                        </p>
-                    </div>
+                            {child.display_name}
+                        </button>
+                    ))}
+                    <button
+                        onClick={() => router.push("/setup")}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-gray-300 text-sakhi-muted hover:border-sakhi-purple hover:text-sakhi-purple transition-colors"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </button>
                 </div>
-
-                {/* Study Sessions Chart */}
-                <div className="rounded-2xl bg-[#1E293B] p-6 border border-slate-700/50 shadow-sm relative">
-                    {loading && (
-                         <div className="absolute inset-0 bg-slate-900/50 z-20 flex items-center justify-center rounded-2xl backdrop-blur-[2px]">
-                             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-6 w-6 rounded-full border-2 border-emerald-400/50 border-t-emerald-400" />
-                         </div>
-                    )}
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-sm font-extrabold tracking-wider text-slate-400">SESSION MINUTES — LAST 7 DAYS</h2>
-                        <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
-                            <div className="flex items-center gap-1.5">
-                                <div className="h-2 w-2 rounded-full bg-emerald-400"></div> Minutes
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="h-48 w-full flex items-end justify-between px-4 pb-2 border-b border-slate-700/50 relative">
-                        <div className="absolute top-0 left-0 w-full border-t border-slate-700/30"></div>
-                        <div className="absolute top-1/2 left-0 w-full border-t border-slate-700/30 -translate-y-1/2"></div>
-                        
-                        {chartBars.map((day, i) => (
-                            <div key={i} className="flex flex-col items-center justify-end h-full w-12 gap-2 relative z-10 group/bar">
-                                <div className="w-6 flex flex-col justify-end gap-1 opacity-80 hover:opacity-100 transition-opacity">
-                                    {(day.minutes > 0) ? (
-                                        <div style={{ height: `${day.active}%` }} className="w-full bg-emerald-400 rounded-sm relative">
-                                            {/* Tooltip */}
-                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-xs px-2 py-1 rounded border border-slate-700 opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap z-30">
-                                                {day.minutes.toFixed(1)} mins
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-1 bg-slate-700 rounded-sm"></div>
-                                    )}
-                                </div>
-                                <span className="text-xs font-bold text-slate-500 mt-2">{day.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Subject Mastery / Topics Breakdown */}
-                <div className="rounded-2xl bg-[#1E293B] p-6 border border-slate-700/50 shadow-sm relative">
-                    {loading && (
-                         <div className="absolute inset-0 bg-slate-900/50 z-20 flex items-center justify-center rounded-2xl backdrop-blur-[2px]" />
-                    )}
-                    <h2 className="text-sm font-extrabold tracking-wider text-slate-400 mb-6">TOP TOPICS DISCUSSED</h2>
-                    
-                    {topTopics.length === 0 ? (
-                        <p className="text-sm text-slate-400 italic">No topics recorded yet for {activeChild?.display_name}.</p>
-                    ) : (
-                        <div className="space-y-5">
-                            {topTopics.map((subject, i) => (
-                                <div key={i}>
-                                    <div className="flex justify-between text-sm font-bold mb-2">
-                                        <span className="text-slate-200">{subject.name}</span>
-                                        <span className={subject.color.replace('bg-', 'text-')}>{subject.rawCount} mentions</span>
-                                    </div>
-                                    <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${subject.score}%` }}
-                                            transition={{ duration: 1, ease: "easeOut", delay: i * 0.1 }}
-                                            className={`h-full ${subject.color} rounded-full`}
-                                        ></motion.div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Alerts / Weak Concept Alert */}
-                {activeAlert && !activeAlert.dismissed ? (
-                    <div className={`rounded-2xl bg-[#1E293B] p-6 border shadow-sm relative overflow-hidden ${
-                        activeAlert.severity === 'critical' ? 'border-red-500/40' : 
-                        activeAlert.severity === 'warning' ? 'border-orange-500/40' : 
-                        'border-blue-500/40'
-                    }`}>
-                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-                            activeAlert.severity === 'critical' ? 'bg-red-500' : 
-                            activeAlert.severity === 'warning' ? 'bg-orange-500' : 
-                            'bg-blue-500'
-                        }`}></div>
-                        <div className="flex gap-4">
-                            <div className="mt-1">
-                                <Lightbulb className={`h-6 w-6 ${
-                                     activeAlert.severity === 'critical' ? 'text-red-400 fill-red-400/20' : 
-                                     activeAlert.severity === 'warning' ? 'text-orange-400 fill-orange-400/20' : 
-                                     'text-blue-400 fill-blue-400/20'
-                                }`} />
-                            </div>
-                            <div>
-                                <h3 className={`text-base font-bold mb-1 ${
-                                     activeAlert.severity === 'critical' ? 'text-red-400' : 
-                                     activeAlert.severity === 'warning' ? 'text-orange-400' : 
-                                     'text-blue-400'
-                                }`}>
-                                    {activeAlert.title || "Observation Note"}
-                                </h3>
-                                <p className="text-sm font-semibold text-slate-400 leading-relaxed">
-                                    {activeAlert.description}
-                                </p>
-                                <p className="text-xs font-semibold text-slate-500 mt-2">
-                                    Recorded on: {new Date(activeAlert.recorded_at).toLocaleDateString()}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="rounded-2xl bg-[#1E293B]/50 p-6 border border-slate-700/30 flex items-center justify-center">
-                         <p className="text-sm font-bold text-slate-500">No active alerts for {activeChild?.display_name} right now.</p>
-                    </div>
-                )}
-
             </div>
-        </main>
+
+            {error && (
+                <div className="mx-5 mb-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-[600] text-red-500">
+                    {error}
+                </div>
+            )}
+
+            {/* ── Hero Card ── */}
+            <div className="px-5 mb-5">
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sakhi-purple to-sakhi-purple-dark p-5 text-white"
+                >
+                    <div className="pr-20">
+                        <h2 className="text-lg font-[800] leading-snug mb-2">
+                            {summaryText}
+                        </h2>
+                        <p className="text-sm font-[600] text-white/80 leading-relaxed">
+                            {summaryDetail}
+                        </p>
+                    </div>
+                    <div className="absolute right-3 bottom-0">
+                        <Image
+                            src="/sakhi-penguin.png"
+                            alt=""
+                            width={80}
+                            height={80}
+                            className="opacity-90"
+                        />
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* ── Metric Grid (2x2) ── */}
+            <div className="px-5 mb-5">
+                <div className="grid grid-cols-2 gap-3">
+                    {/* Streak */}
+                    <div className="metric-card">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100">
+                                <Flame className="h-4 w-4 text-sakhi-orange" />
+                            </div>
+                            <span className="text-xs font-[800] text-sakhi-muted uppercase">Streak</span>
+                        </div>
+                        <p className="text-2xl font-[900] text-sakhi-text">
+                            {streak?.current_streak || 0} Days
+                        </p>
+                    </div>
+
+                    {/* Mood */}
+                    <div className="metric-card">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-100">
+                                <Smile className="h-4 w-4 text-sakhi-pink" />
+                            </div>
+                            <span className="text-xs font-[800] text-sakhi-muted uppercase">Mood</span>
+                        </div>
+                        <p className="text-xl font-[900] text-sakhi-text capitalize">
+                            {recentMood}
+                        </p>
+                        <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                            <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-sakhi-pink to-sakhi-purple" />
+                        </div>
+                    </div>
+
+                    {/* Time */}
+                    <div className="metric-card">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                                <Clock className="h-4 w-4 text-sakhi-sky" />
+                            </div>
+                            <span className="text-xs font-[800] text-sakhi-muted uppercase">Time</span>
+                        </div>
+                        <p className="text-2xl font-[900] text-sakhi-text">
+                            {Math.round(timeSpent?.total_minutes || 0)}m
+                        </p>
+                    </div>
+
+                    {/* Alerts */}
+                    <div className="metric-card">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100">
+                                    <Bell className="h-4 w-4 text-sakhi-yellow" />
+                                </div>
+                            </div>
+                            {alertCount > 0 && (
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-[800] text-white">
+                                    {alertCount}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-2xl font-[900] text-sakhi-text">
+                            Alerts
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Focus Topics ── */}
+            <div className="px-5 mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base">✨</span>
+                    <h3 className="text-base font-[800] text-sakhi-text">Focus Topics Today</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {topTopics.length > 0 ? (
+                        topTopics.map((topic, i) => (
+                            <span
+                                key={i}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-white border border-gray-100 px-3.5 py-1.5 text-sm font-[700] text-sakhi-text shadow-sm"
+                            >
+                                {getTopicEmoji(topic.name)}
+                                {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)}
+                            </span>
+                        ))
+                    ) : (
+                        <span className="text-sm font-[600] text-sakhi-muted italic">
+                            No topics explored yet
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Bottom Nav ── */}
+            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-100 px-4 py-2 flex items-center justify-around z-30">
+                {[
+                    { id: "home", icon: Home, label: "Home" },
+                    { id: "reports", icon: BarChart3, label: "Reports" },
+                    { id: "settings", icon: Settings, label: "Settings" },
+                    { id: "help", icon: HelpCircle, label: "Help" },
+                ].map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeNav === item.id;
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => setActiveNav(item.id)}
+                            className={`flex flex-col items-center gap-0.5 py-1 px-3 transition-colors ${
+                                isActive ? "text-sakhi-purple" : "text-sakhi-muted"
+                            }`}
+                        >
+                            <Icon className="h-5 w-5" />
+                            <span className="text-[10px] font-[700]">{item.label}</span>
+                        </button>
+                    );
+                })}
+            </nav>
+        </MobileShell>
     );
 }
-

@@ -3,49 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Rocket } from "lucide-react";
+import { User, Calendar, ArrowRight, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-
-function FloatingSparkles() {
-    return (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            {Array.from({ length: 20 }).map((_, i) => (
-                <span
-                    key={i}
-                    className="sparkle"
-                    style={{
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
-                        animationDelay: `${Math.random() * 4}s`,
-                        animationDuration: `${3 + Math.random() * 3}s`,
-                        width: `${4 + Math.random() * 6}px`,
-                        height: `${4 + Math.random() * 6}px`,
-                        background: [
-                            "var(--color-sakhi-yellow)",
-                            "var(--color-sakhi-pink)",
-                            "var(--color-sakhi-purple)",
-                            "var(--color-sakhi-sky)",
-                        ][Math.floor(Math.random() * 4)],
-                    }}
-                />
-            ))}
-        </div>
-    );
-}
+import { MobileShell } from "@/components/ui/MobileShell";
+import Image from "next/image";
 
 export default function SetupPage() {
     const router = useRouter();
-    const { isLoggedIn, ready, createChildProfile, clearNewSignup } = useAuth();
+    const { createChildProfile } = useAuth();
+
     const [childName, setChildName] = useState("");
-    const [childAge, setChildAge] = useState(8);
+    const [childAge, setChildAge] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
-
-    // Guard: redirect if not logged in
-    if (ready && !isLoggedIn) {
-        router.replace("/login");
-        return null;
-    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,99 +28,94 @@ export default function SetupPage() {
         setError("");
 
         try {
-            await createChildProfile(childName.trim(), childAge);
-            clearNewSignup();
+            await createChildProfile(childName.trim(), parseInt(childAge) || 5);
             router.push("/profiles");
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Something went wrong";
-            setError(message);
+            const msg = err instanceof Error ? err.message : "Something went wrong";
+            setError(msg);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <main className="sakhi-bg-gradient relative flex min-h-dvh flex-col items-center justify-center px-4 py-8">
-            <FloatingSparkles />
+        <MobileShell bg="default" className="flex flex-col">
+            {/* ── Top section ── */}
+            <div className="flex-shrink-0 px-6 pt-6 pb-4">
+                {/* Back button */}
+                <motion.button
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    onClick={() => router.back()}
+                    className="back-btn mb-4"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back
+                </motion.button>
 
-            {/* Logo / Title */}
-            <motion.div
-                initial={{ opacity: 0, y: -30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="relative z-10 mb-8 text-center"
-            >
-                <div className="mb-3 flex items-center justify-center gap-2">
-                    <Sparkles className="h-8 w-8 text-sakhi-yellow" />
-                    <h1 className="text-5xl font-[900] tracking-tight sm:text-6xl">
-                        <span className="bg-gradient-to-r from-sakhi-pink via-sakhi-purple to-sakhi-sky bg-clip-text text-transparent">
-                            Sakhi
-                        </span>
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                >
+                    <h1 className="text-pop text-3xl font-[900] text-sakhi-text leading-tight">
+                        Add a Child
                     </h1>
-                    <Sparkles className="h-8 w-8 text-sakhi-yellow" />
-                </div>
-                <p className="text-lg font-[600] text-sakhi-muted sm:text-xl">
-                    Let&apos;s set up your child&apos;s profile! 🚀
-                </p>
-            </motion.div>
+                    <p className="mt-2 text-sm font-[600] text-sakhi-muted">
+                        Tell us about your little one so Sakhi can be a great friend!
+                    </p>
+                </motion.div>
 
-            {/* Card */}
+                {/* Penguin */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex justify-end mt-2 -mb-8 relative z-10"
+                >
+                    <Image
+                        src="/sakhi-penguin.png"
+                        alt="Sakhi"
+                        width={140}
+                        height={140}
+                        className="penguin-pop"
+                        priority
+                    />
+                </motion.div>
+            </div>
+
+            {/* ── White card ── */}
             <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="glass-card relative z-10 w-full max-w-md rounded-3xl p-8 shadow-2xl"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex-1 bg-white/90 backdrop-blur-sm rounded-t-[2rem] px-6 pt-10 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.06)]"
             >
-                <h2 className="mb-6 text-center text-2xl font-[800] text-sakhi-text">
-                    Tell us about your child! ✨
-                </h2>
-
-                <form onSubmit={handleSubmit}>
-                    {/* Name field */}
-                    <div className="mb-5">
-                        <label
-                            htmlFor="child-name"
-                            className="mb-2 block text-sm font-[700] text-sakhi-muted"
-                        >
-                            Child&apos;s Name
-                        </label>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    {/* Child name */}
+                    <div className="relative">
+                        <User className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-sakhi-muted/50" />
                         <input
-                            id="child-name"
                             type="text"
-                            placeholder="Type your child's name here!"
+                            placeholder="Child's Name"
                             value={childName}
                             onChange={(e) => setChildName(e.target.value)}
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-lg font-[600] text-sakhi-text placeholder:text-sakhi-muted/50 outline-none transition-all focus:border-sakhi-purple focus:ring-2 focus:ring-sakhi-purple/30"
+                            className="auth-input py-4 pr-5 pl-12"
+                            required
                         />
                     </div>
 
-                    {/* Age field */}
-                    <div className="mb-7">
-                        <label
-                            htmlFor="child-age"
-                            className="mb-2 block text-sm font-[700] text-sakhi-muted"
-                        >
-                            Child&apos;s Age
-                        </label>
-                        <div className="flex items-center gap-4">
-                            <input
-                                id="child-age"
-                                type="range"
-                                min={3}
-                                max={15}
-                                value={childAge}
-                                onChange={(e) => setChildAge(Number(e.target.value))}
-                                className="h-3 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-sakhi-pink"
-                            />
-                            <motion.span
-                                key={childAge}
-                                initial={{ scale: 1.4 }}
-                                animate={{ scale: 1 }}
-                                className="min-w-[3rem] rounded-xl bg-sakhi-pink/20 px-3 py-1.5 text-center text-xl font-[800] text-sakhi-pink"
-                            >
-                                {childAge}
-                            </motion.span>
-                        </div>
+                    {/* Child age */}
+                    <div className="relative">
+                        <Calendar className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-sakhi-muted/50" />
+                        <input
+                            type="number"
+                            placeholder="Age (optional)"
+                            min="1"
+                            max="18"
+                            value={childAge}
+                            onChange={(e) => setChildAge(e.target.value)}
+                            className="auth-input py-4 pr-5 pl-12"
+                        />
                     </div>
 
                     {/* Error */}
@@ -160,20 +125,20 @@ export default function SetupPage() {
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-center text-sm font-[600] text-red-400"
+                                className="rounded-2xl bg-red-50 px-4 py-3 text-center text-sm font-[600] text-red-500"
                             >
                                 {error}
                             </motion.p>
                         )}
                     </AnimatePresence>
 
-                    {/* Submit button */}
+                    {/* Submit */}
                     <motion.button
                         type="submit"
                         disabled={isLoading}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sakhi-pink via-sakhi-purple to-sakhi-sky px-6 py-4 text-xl font-[800] text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        className="sakhi-btn-primary btn-pop flex w-full items-center justify-center gap-3 px-6 py-4 text-lg disabled:opacity-60 mt-2"
                     >
                         {isLoading ? (
                             <motion.div
@@ -183,23 +148,18 @@ export default function SetupPage() {
                             />
                         ) : (
                             <>
-                                <Rocket className="h-6 w-6 transition-transform group-hover:-rotate-12" />
-                                Let&apos;s Go!
+                                Continue
+                                <ArrowRight className="h-5 w-5" />
                             </>
                         )}
                     </motion.button>
                 </form>
-            </motion.div>
 
-            {/* Footer */}
-            <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="relative z-10 mt-6 text-center text-sm font-[600] text-sakhi-muted/60"
-            >
-                Made with 💖 for curious minds
-            </motion.p>
-        </main>
+                {/* Skip note */}
+                <p className="mt-6 text-center text-xs font-[600] text-sakhi-muted">
+                    You can always add more children later from the profiles page
+                </p>
+            </motion.div>
+        </MobileShell>
     );
 }

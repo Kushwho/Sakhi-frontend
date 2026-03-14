@@ -3,55 +3,21 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, Plus, LogOut, Lock, Eye, EyeOff } from "lucide-react";
+import { Plus, LogOut, Lock } from "lucide-react";
 import { useAuth, type Profile } from "@/contexts/AuthContext";
-import { useProfile } from "@/contexts/ProfileContext";
-import { apiFetch } from "@/lib/api";
+import { MobileShell } from "@/components/ui/MobileShell";
+import Image from "next/image";
 
-/* ------------------------------------------------------------------ */
-/*  Palette of avatar colours (deterministic per profile index)       */
-/* ------------------------------------------------------------------ */
+/* ── Avatar color palette ── */
 const AVATAR_COLORS = [
-    "from-sakhi-pink to-sakhi-purple",
-    "from-sakhi-sky to-sakhi-purple",
-    "from-sakhi-yellow to-sakhi-pink",
-    "from-sakhi-green to-sakhi-sky",
     "from-sakhi-purple to-sakhi-pink",
+    "from-sakhi-sky to-sakhi-purple",
+    "from-sakhi-yellow to-sakhi-orange",
+    "from-sakhi-green to-sakhi-sky",
+    "from-sakhi-pink to-sakhi-purple",
 ];
 
-/* ------------------------------------------------------------------ */
-/*  Floating sparkles (reused style)                                  */
-/* ------------------------------------------------------------------ */
-function FloatingSparkles() {
-    return (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            {Array.from({ length: 12 }).map((_, i) => (
-                <span
-                    key={i}
-                    className="sparkle"
-                    style={{
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
-                        animationDelay: `${Math.random() * 4}s`,
-                        animationDuration: `${3 + Math.random() * 3}s`,
-                        width: `${4 + Math.random() * 6}px`,
-                        height: `${4 + Math.random() * 6}px`,
-                        background: [
-                            "var(--color-sakhi-yellow)",
-                            "var(--color-sakhi-pink)",
-                            "var(--color-sakhi-purple)",
-                            "var(--color-sakhi-sky)",
-                        ][Math.floor(Math.random() * 4)],
-                    }}
-                />
-            ))}
-        </div>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Profile card component                                            */
-/* ------------------------------------------------------------------ */
+/* ── Profile card ── */
 function ProfileCard({
     profile,
     colorClass,
@@ -76,21 +42,21 @@ function ProfileCard({
             className="group flex flex-col items-center gap-3"
         >
             <div
-                className={`relative flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br ${colorClass} shadow-lg transition-shadow group-hover:shadow-xl group-hover:shadow-sakhi-purple/30 sm:h-32 sm:w-32`}
+                className={`relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br ${colorClass} shadow-lg transition-shadow group-hover:shadow-xl group-hover:shadow-sakhi-purple/20`}
             >
-                <span className="text-3xl font-[900] text-white sm:text-4xl">
+                <span className="text-2xl font-[900] text-white">
                     {initials}
                 </span>
 
                 {/* Lock badge for parent */}
                 {profile.type === "parent" && (
-                    <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-sakhi-card shadow-md ring-2 ring-sakhi-bg">
-                        <Lock className="h-4 w-4 text-sakhi-yellow" />
+                    <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-white">
+                        <Lock className="h-3.5 w-3.5 text-sakhi-purple" />
                     </div>
                 )}
             </div>
 
-            <span className="text-base font-[700] text-sakhi-text sm:text-lg">
+            <span className="text-sm font-[700] text-sakhi-text">
                 {profile.display_name}
             </span>
             <span className="text-xs font-[600] text-sakhi-muted capitalize">
@@ -101,122 +67,13 @@ function ProfileCard({
     );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Password modal (for parent entry)                                 */
-/* ------------------------------------------------------------------ */
-function PasswordModal({
-    profile,
-    onConfirm,
-    onCancel,
-}: {
-    profile: Profile;
-    onConfirm: (pw: string) => void;
-    onCancel: () => void;
-}) {
-    const [pw, setPw] = useState("");
-    const [error, setError] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={onCancel}
-        >
-            <motion.div
-                initial={{ scale: 0.85, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.85, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
-                className="glass-card w-full max-w-sm rounded-3xl p-8 shadow-2xl"
-            >
-                <h3 className="mb-1 text-center text-xl font-[800] text-sakhi-text">
-                    Enter Password
-                </h3>
-                <p className="mb-5 text-center text-sm font-[600] text-sakhi-muted">
-                    Parent access for{" "}
-                    <span className="text-sakhi-purple">{profile.display_name}</span>
-                </p>
-
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        if (!pw.trim()) {
-                            setError("Password is required");
-                            return;
-                        }
-                        onConfirm(pw);
-                    }}
-                >
-                    <div className="relative mb-4">
-                        <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-sakhi-muted/60" />
-                        <input
-                            autoFocus
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Family password"
-                            value={pw}
-                            onChange={(e) => {
-                                setPw(e.target.value);
-                                setError("");
-                            }}
-                            className="auth-input py-4 pl-12 pr-12"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-sakhi-muted/60 transition-colors hover:text-sakhi-text"
-                        >
-                            {showPassword ? (
-                                <EyeOff className="h-5 w-5" />
-                            ) : (
-                                <Eye className="h-5 w-5" />
-                            )}
-                        </button>
-                    </div>
-
-                    {error && (
-                        <p className="mb-3 text-center text-sm font-[600] text-red-400">
-                            {error}
-                        </p>
-                    )}
-
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-[700] text-sakhi-muted transition-colors hover:bg-white/5"
-                        >
-                            Cancel
-                        </button>
-                        <motion.button
-                            type="submit"
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            className="flex-1 rounded-2xl bg-gradient-to-r from-sakhi-pink to-sakhi-purple px-4 py-3 text-sm font-[800] text-white shadow-lg"
-                        >
-                            Enter
-                        </motion.button>
-                    </div>
-                </form>
-            </motion.div>
-        </motion.div>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Main Page                                                         */
-/* ------------------------------------------------------------------ */
+/* ── Main Page ── */
 export default function ProfilesPage() {
     const router = useRouter();
     const { isLoggedIn, ready, profiles, fetchProfiles, logout } = useAuth();
-    const { enterProfile } = useProfile();
 
     const [loading, setLoading] = useState(true);
-    const [enteringId, setEnteringId] = useState<string | null>(null);
     const [error, setError] = useState("");
-    const [parentModal, setParentModal] = useState<Profile | null>(null);
 
     /* Fetch profiles on mount */
     useEffect(() => {
@@ -230,102 +87,62 @@ export default function ProfilesPage() {
             .finally(() => setLoading(false));
     }, [ready, isLoggedIn, fetchProfiles, router]);
 
-    /* ---- handlers ------------------------------------------------ */
-    const handleSelect = useCallback(
-        async (profile: Profile, password?: string) => {
-            setEnteringId(profile.id);
-            setError("");
-            try {
-                const profileToken = await enterProfile(profile.id, password);
-
-                if (profile.type === "child") {
-                    // Fetch LiveKit session token using the profile token,
-                    // then bridge into the existing agent page via sessionStorage.
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
-                    const tokenRes = await fetch(`${apiUrl}/api/token`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${profileToken}`,
-                        },
-                        body: JSON.stringify({}),
-                    });
-
-                    if (!tokenRes.ok) {
-                        throw new Error("Failed to start voice session");
-                    }
-
-                    const tokenData = await tokenRes.json();
-                    sessionStorage.setItem(
-                        "sakhi_session",
-                        JSON.stringify({
-                            token: tokenData.token,
-                            livekit_url: tokenData.livekit_url,
-                            room_name: tokenData.room_name,
-                            child_name: profile.display_name,
-                        })
-                    );
-                    router.push("/agent");
-                } else if (profile.type === "parent") {
-                    // Parent entered — navigate to dashboard.
-                    router.push("/dashboard");
-                }
-            } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : "Something went wrong";
-                setError(msg);
-            } finally {
-                setEnteringId(null);
-                setParentModal(null);
-            }
-        },
-        [enterProfile, router]
-    );
-
+    /* ── handlers ── */
     const handleCardClick = useCallback(
         (profile: Profile) => {
             if (profile.type === "parent") {
-                setParentModal(profile);
+                // Navigate to dedicated parent-password page
+                router.push(`/parent-password?profileId=${profile.id}`);
             } else {
-                handleSelect(profile);
+                // Navigate to child-entry page
+                router.push(`/child-entry?profileId=${profile.id}`);
             }
         },
-        [handleSelect]
+        [router]
     );
 
-    /* ---- render -------------------------------------------------- */
+    /* ── render ── */
     if (!ready || loading) {
         return (
-            <main className="sakhi-bg-gradient flex min-h-dvh items-center justify-center">
+            <MobileShell className="flex items-center justify-center">
                 <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
                     className="h-10 w-10 rounded-full border-4 border-sakhi-purple/30 border-t-sakhi-purple"
                 />
-            </main>
+            </MobileShell>
         );
     }
 
     return (
-        <main className="sakhi-bg-gradient relative flex min-h-dvh flex-col items-center justify-center px-4 py-12">
-            <FloatingSparkles />
-
-            {/* Title */}
+        <MobileShell className="flex flex-col items-center px-6 pt-10 pb-8">
+            {/* Penguin */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative z-10 mb-10 text-center"
+                className="mb-6"
             >
-                <div className="mb-2 flex items-center justify-center gap-2">
-                    <Sparkles className="h-7 w-7 text-sakhi-yellow" />
-                    <h1 className="text-4xl font-[900] tracking-tight sm:text-5xl">
-                        <span className="bg-gradient-to-r from-sakhi-pink via-sakhi-purple to-sakhi-sky bg-clip-text text-transparent">
-                            Who&apos;s Playing?
-                        </span>
-                    </h1>
-                    <Sparkles className="h-7 w-7 text-sakhi-yellow" />
-                </div>
-                <p className="text-base font-[600] text-sakhi-muted sm:text-lg">
+                <Image
+                    src="/sakhi-penguin.png"
+                    alt="Sakhi"
+                    width={120}
+                    height={120}
+                    className="penguin-pop"
+                    priority
+                />
+            </motion.div>
+
+            {/* Title */}
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-8 text-center"
+            >
+                <h1 className="text-pop text-3xl font-[900] text-sakhi-text">
+                    Who&apos;s Playing?
+                </h1>
+                <p className="mt-2 text-sm font-[600] text-sakhi-muted">
                     Pick your profile to start chatting with Sakhi!
                 </p>
             </motion.div>
@@ -335,7 +152,7 @@ export default function ProfilesPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="relative z-10 flex flex-wrap items-start justify-center gap-8 sm:gap-12"
+                className="flex flex-wrap items-start justify-center gap-8"
             >
                 {profiles.map((p, i) => (
                     <ProfileCard
@@ -353,57 +170,37 @@ export default function ProfilesPage() {
                     whileTap={{ scale: 0.95 }}
                     className="group flex flex-col items-center gap-3"
                 >
-                    <div className="flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-dashed border-white/15 bg-white/5 shadow-inner transition-colors group-hover:border-sakhi-purple/50 group-hover:bg-white/10 sm:h-32 sm:w-32">
-                        <Plus className="h-10 w-10 text-sakhi-muted/50 transition-colors group-hover:text-sakhi-purple" />
+                    <div className="flex h-24 w-24 items-center justify-center rounded-3xl border-2 border-dashed border-gray-300 bg-white/50 shadow-inner transition-colors group-hover:border-sakhi-purple/50 group-hover:bg-sakhi-purple/5">
+                        <Plus className="h-8 w-8 text-sakhi-muted/50 transition-colors group-hover:text-sakhi-purple" />
                     </div>
-                    <span className="text-base font-[700] text-sakhi-muted sm:text-lg">
+                    <span className="text-sm font-[700] text-sakhi-muted">
                         Add Child
                     </span>
                 </motion.button>
             </motion.div>
-
-            {/* Loading overlay when entering a profile */}
-            {enteringId && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                        className="h-12 w-12 rounded-full border-4 border-sakhi-purple/30 border-t-sakhi-purple"
-                    />
-                </div>
-            )}
 
             {/* Error */}
             {error && (
                 <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="relative z-10 mt-6 rounded-xl bg-red-500/10 px-5 py-3 text-center text-sm font-[600] text-red-400"
+                    className="mt-6 rounded-2xl bg-red-50 px-5 py-3 text-center text-sm font-[600] text-red-500"
                 >
                     {error}
                 </motion.p>
             )}
 
-            {/* Parent password modal */}
-            {parentModal && (
-                <PasswordModal
-                    profile={parentModal}
-                    onCancel={() => setParentModal(null)}
-                    onConfirm={(pw) => handleSelect(parentModal, pw)}
-                />
-            )}
-
-            {/* Logout button (bottom) */}
+            {/* Logout button */}
             <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
                 onClick={logout}
-                className="relative z-10 mt-12 flex items-center gap-2 rounded-2xl border border-white/10 px-5 py-2.5 text-sm font-[700] text-sakhi-muted transition-colors hover:border-red-400/30 hover:text-red-400"
+                className="mt-10 flex items-center gap-2 rounded-full border border-gray-200 px-5 py-2.5 text-sm font-[700] text-sakhi-muted transition-colors hover:border-red-300 hover:text-red-500"
             >
                 <LogOut className="h-4 w-4" />
                 Sign Out
             </motion.button>
-        </main>
+        </MobileShell>
     );
 }
