@@ -203,3 +203,156 @@ export async function fetchDashboardData(profileId: string, profileToken: string
         alerts: alertsData as AlertsData,
     };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Story API Helpers                                                 */
+/* ------------------------------------------------------------------ */
+
+export type Story = {
+    id: string;
+    title: string;
+    genre: string;
+    age_min: number;
+    age_max: number;
+    total_segments: number;
+};
+
+export type StoryTokenData = {
+    token: string;
+    room_name: string;
+    livekit_url: string;
+};
+
+/**
+ * Fetch a random story matching the given genre.
+ * Returns null if no stories match (404).
+ */
+export async function fetchRandomStory(
+    genre: string,
+    profileToken: string
+): Promise<Story | null> {
+    const params = genre ? `?genre=${encodeURIComponent(genre)}` : "";
+    const res = await apiFetch(`/api/stories/random${params}`, {
+        tokenSource: "profile",
+        profileToken,
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Failed to fetch random story");
+    return res.json();
+}
+
+/**
+ * List all available stories, optionally filtered.
+ */
+export async function fetchStories(
+    profileToken: string,
+    genre?: string
+): Promise<{ stories: Story[]; total: number }> {
+    const params = genre ? `?genre=${encodeURIComponent(genre)}` : "";
+    const res = await apiFetch(`/api/stories${params}`, {
+        tokenSource: "profile",
+        profileToken,
+    });
+    if (!res.ok) throw new Error("Failed to fetch stories");
+    return res.json();
+}
+
+/**
+ * Request a LiveKit story-session token for a confirmed story.
+ */
+export async function fetchStoryToken(
+    storyId: string,
+    profileToken: string
+): Promise<StoryTokenData> {
+    const res = await apiFetch("/api/story-token", {
+        method: "POST",
+        tokenSource: "profile",
+        profileToken,
+        body: JSON.stringify({ story_id: storyId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to start story session");
+    }
+    return res.json();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Chat API Helpers (SSE streaming)                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Send a chat message and receive an SSE stream back.
+ * Returns the raw Response — caller must read the body as a stream.
+ *
+ * SSE events:
+ *   data: {"type": "thread_id", "value": "<uuid>"}
+ *   data: {"type": "token",     "value": "..."}
+ *   data: {"type": "done"}
+ */
+export async function sendChatMessage(
+    message: string,
+    threadId: string | null,
+    profileToken: string
+): Promise<Response> {
+    const body: Record<string, string | null> = { message };
+    if (threadId) body.thread_id = threadId;
+
+    const res = await apiFetch("/api/chat/send", {
+        method: "POST",
+        tokenSource: "profile",
+        profileToken,
+        body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to send message");
+    }
+
+    return res;
+}
+
+export type ChatMessage = {
+    role: "user" | "assistant";
+    content: string;
+};
+
+/**
+ * Fetch the full message history for a thread.
+ */
+export async function fetchChatHistory(
+    threadId: string,
+    profileToken: string
+): Promise<{ messages: ChatMessage[] }> {
+    const res = await apiFetch("/api/chat/history", {
+        method: "POST",
+        tokenSource: "profile",
+        profileToken,
+        body: JSON.stringify({ thread_id: threadId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to fetch chat history");
+    }
+    return res.json();
+}
+
+/**
+ * End a chat session — triggers server-side summary + persist.
+ */
+export async function endChatSession(
+    threadId: string,
+    profileToken: string
+): Promise<void> {
+    const res = await apiFetch("/api/chat/end", {
+        method: "POST",
+        tokenSource: "profile",
+        profileToken,
+        body: JSON.stringify({ thread_id: threadId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to end chat session");
+    }
+}

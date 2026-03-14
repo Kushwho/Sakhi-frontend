@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, Plus, LogOut, Lock, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Plus, LogOut, Lock, Eye, EyeOff, Mic, BookOpen, MessageCircle } from "lucide-react";
 import { useAuth, type Profile } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import { apiFetch } from "@/lib/api";
@@ -206,6 +206,98 @@ function PasswordModal({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Mode Picker Modal (child: Voice vs Story)                         */
+/* ------------------------------------------------------------------ */
+function ModePickerModal({
+    childName,
+    onVoice,
+    onChat,
+    onStory,
+    onCancel,
+    isLoading,
+}: {
+    childName: string;
+    onVoice: () => void;
+    onChat: () => void;
+    onStory: () => void;
+    onCancel: () => void;
+    isLoading: boolean;
+}) {
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={onCancel}
+        >
+            <motion.div
+                initial={{ scale: 0.85, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.85, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="glass-card w-full max-w-sm rounded-3xl p-8 shadow-2xl sm:max-w-lg"
+            >
+                <h3 className="mb-1 text-center text-xl font-[800] text-sakhi-text sm:text-2xl">
+                    Hi {childName}! 👋
+                </h3>
+                <p className="mb-6 text-center text-sm font-[600] text-sakhi-muted">
+                    What would you like to do today?
+                </p>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                    {/* Voice mode */}
+                    <motion.button
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={onVoice}
+                        disabled={isLoading}
+                        className="flex flex-1 flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-sakhi-pink to-sakhi-purple p-6 shadow-lg transition-shadow hover:shadow-xl disabled:opacity-50"
+                    >
+                        <Mic className="h-10 w-10 text-white" />
+                        <span className="text-base font-[800] text-white">Voice Chat</span>
+                        <span className="text-xs font-[600] text-white/70">Talk & learn</span>
+                    </motion.button>
+
+                    {/* Chat mode */}
+                    <motion.button
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={onChat}
+                        disabled={isLoading}
+                        className="flex flex-1 flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-sakhi-yellow to-sakhi-pink p-6 shadow-lg transition-shadow hover:shadow-xl disabled:opacity-50"
+                    >
+                        <MessageCircle className="h-10 w-10 text-white" />
+                        <span className="text-base font-[800] text-white">Text Chat</span>
+                        <span className="text-xs font-[600] text-white/70">Type & learn</span>
+                    </motion.button>
+
+                    {/* Story mode */}
+                    <motion.button
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={onStory}
+                        disabled={isLoading}
+                        className="flex flex-1 flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-sakhi-sky to-sakhi-purple p-6 shadow-lg transition-shadow hover:shadow-xl disabled:opacity-50"
+                    >
+                        <BookOpen className="h-10 w-10 text-white" />
+                        <span className="text-base font-[800] text-white">Story Time</span>
+                        <span className="text-xs font-[600] text-white/70">Listen to stories</span>
+                    </motion.button>
+                </div>
+
+                <button
+                    onClick={onCancel}
+                    className="mt-4 w-full rounded-2xl border border-white/10 px-4 py-2.5 text-sm font-[700] text-sakhi-muted transition-colors hover:bg-white/5"
+                >
+                    Cancel
+                </button>
+            </motion.div>
+        </motion.div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Page                                                         */
 /* ------------------------------------------------------------------ */
 export default function ProfilesPage() {
@@ -217,6 +309,8 @@ export default function ProfilesPage() {
     const [enteringId, setEnteringId] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [parentModal, setParentModal] = useState<Profile | null>(null);
+    const [modePickerProfile, setModePickerProfile] = useState<Profile | null>(null);
+    const [childProfileToken, setChildProfileToken] = useState<string | null>(null);
 
     /* Fetch profiles on mount */
     useEffect(() => {
@@ -239,36 +333,10 @@ export default function ProfilesPage() {
                 const profileToken = await enterProfile(profile.id, password);
 
                 if (profile.type === "child") {
-                    // Fetch LiveKit session token using the profile token,
-                    // then bridge into the existing agent page via sessionStorage.
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
-                    const tokenRes = await fetch(`${apiUrl}/api/token`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${profileToken}`,
-                        },
-                        body: JSON.stringify({}),
-                    });
-
-                    if (!tokenRes.ok) {
-                        throw new Error("Failed to start voice session");
-                    }
-
-                    const tokenData = await tokenRes.json();
-                    sessionStorage.setItem(
-                        "sakhi_session",
-                        JSON.stringify({
-                            token: tokenData.token,
-                            livekit_url: tokenData.livekit_url,
-                            room_name: tokenData.room_name,
-                            child_name: profile.display_name,
-                        })
-                    );
-                    router.push("/agent");
+                    // Show mode picker instead of going straight to voice
+                    setChildProfileToken(profileToken);
+                    setModePickerProfile(profile);
                 } else if (profile.type === "parent") {
-                    // Parent entered — navigate to dashboard.
                     router.push("/dashboard");
                 }
             } catch (err: unknown) {
@@ -281,6 +349,62 @@ export default function ProfilesPage() {
         },
         [enterProfile, router]
     );
+
+    /* ---- Mode picker: Voice ---- */
+    const handleVoiceMode = useCallback(async () => {
+        if (!modePickerProfile || !childProfileToken) return;
+        setEnteringId(modePickerProfile.id);
+        setError("");
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            const tokenRes = await fetch(`${apiUrl}/api/token`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${childProfileToken}`,
+                },
+                body: JSON.stringify({}),
+            });
+            if (!tokenRes.ok) throw new Error("Failed to start voice session");
+            const tokenData = await tokenRes.json();
+            sessionStorage.setItem(
+                "sakhi_session",
+                JSON.stringify({
+                    token: tokenData.token,
+                    livekit_url: tokenData.livekit_url,
+                    room_name: tokenData.room_name,
+                    child_name: modePickerProfile.display_name,
+                })
+            );
+            router.push("/agent");
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Something went wrong";
+            setError(msg);
+        } finally {
+            setEnteringId(null);
+            setModePickerProfile(null);
+        }
+    }, [modePickerProfile, childProfileToken, router]);
+
+    /* ---- Mode picker: Chat ---- */
+    const handleChatMode = useCallback(() => {
+        if (!modePickerProfile || !childProfileToken) return;
+        sessionStorage.setItem(
+            "sakhi_chat_session",
+            JSON.stringify({
+                child_name: modePickerProfile.display_name,
+                profile_token: childProfileToken,
+            })
+        );
+        setModePickerProfile(null);
+        router.push("/chat");
+    }, [modePickerProfile, childProfileToken, router]);
+
+    /* ---- Mode picker: Story ---- */
+    const handleStoryMode = useCallback(() => {
+        setModePickerProfile(null);
+        router.push("/story");
+    }, [router]);
 
     const handleCardClick = useCallback(
         (profile: Profile) => {
@@ -390,6 +514,18 @@ export default function ProfilesPage() {
                     profile={parentModal}
                     onCancel={() => setParentModal(null)}
                     onConfirm={(pw) => handleSelect(parentModal, pw)}
+                />
+            )}
+
+            {/* Child mode picker modal */}
+            {modePickerProfile && (
+                <ModePickerModal
+                    childName={modePickerProfile.display_name}
+                    onVoice={handleVoiceMode}
+                    onChat={handleChatMode}
+                    onStory={handleStoryMode}
+                    onCancel={() => setModePickerProfile(null)}
+                    isLoading={!!enteringId}
                 />
             )}
 
