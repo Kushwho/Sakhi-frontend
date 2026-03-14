@@ -157,3 +157,56 @@ input, select {
   background-size: 200% 100%;
   animation: page-shimmer 3s ease-in-out infinite;
 }
+
+/* Chat mode – user message bubble */
+.chat-bubble-user {
+  background: linear-gradient(135deg, var(--color-sakhi-purple), var(--color-sakhi-pink));
+  color: white;
+  border-radius: 1.25rem 1.25rem 0.375rem 1.25rem;
+  padding: 0.75rem 1rem;
+  max-width: 80%;
+  word-wrap: break-word;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  box-shadow: 0 2px 12px rgba(192, 132, 252, 0.25);
+}
+
+/* Chat mode – assistant message bubble */
+.chat-bubble-assistant {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-sakhi-text);
+  border-radius: 1.25rem 1.25rem 1.25rem 0.375rem;
+  padding: 0.75rem 1rem;
+  max-width: 80%;
+  word-wrap: break-word;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Chat mode – typing indicator */
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-sakhi-muted);
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Chat mode – input glow on focus */
+.chat-input:focus {
+  border-color: var(--color-sakhi-purple);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.2);
+}

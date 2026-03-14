@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles, Plus, LogOut, Lock, Eye, EyeOff, Mic, BookOpen } from "lucide-react";
+import { Sparkles, Plus, LogOut, Lock, Eye, EyeOff, Mic, BookOpen, MessageCircle } from "lucide-react";
 import { useAuth, type Profile } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import { apiFetch } from "@/lib/api";
@@ -211,12 +211,14 @@ function PasswordModal({
 function ModePickerModal({
     childName,
     onVoice,
+    onChat,
     onStory,
     onCancel,
     isLoading,
 }: {
     childName: string;
     onVoice: () => void;
+    onChat: () => void;
     onStory: () => void;
     onCancel: () => void;
     isLoading: boolean;
@@ -234,7 +236,7 @@ function ModePickerModal({
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.85, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className="glass-card w-full max-w-sm rounded-3xl p-8 shadow-2xl sm:max-w-md"
+                className="glass-card w-full max-w-sm rounded-3xl p-8 shadow-2xl sm:max-w-lg"
             >
                 <h3 className="mb-1 text-center text-xl font-[800] text-sakhi-text sm:text-2xl">
                     Hi {childName}! 👋
@@ -253,8 +255,21 @@ function ModePickerModal({
                         className="flex flex-1 flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-sakhi-pink to-sakhi-purple p-6 shadow-lg transition-shadow hover:shadow-xl disabled:opacity-50"
                     >
                         <Mic className="h-10 w-10 text-white" />
-                        <span className="text-base font-[800] text-white">Talk to Sakhi</span>
-                        <span className="text-xs font-[600] text-white/70">Chat & learn</span>
+                        <span className="text-base font-[800] text-white">Voice Chat</span>
+                        <span className="text-xs font-[600] text-white/70">Talk & learn</span>
+                    </motion.button>
+
+                    {/* Chat mode */}
+                    <motion.button
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={onChat}
+                        disabled={isLoading}
+                        className="flex flex-1 flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-sakhi-yellow to-sakhi-pink p-6 shadow-lg transition-shadow hover:shadow-xl disabled:opacity-50"
+                    >
+                        <MessageCircle className="h-10 w-10 text-white" />
+                        <span className="text-base font-[800] text-white">Text Chat</span>
+                        <span className="text-xs font-[600] text-white/70">Type & learn</span>
                     </motion.button>
 
                     {/* Story mode */}
@@ -369,6 +384,20 @@ export default function ProfilesPage() {
             setEnteringId(null);
             setModePickerProfile(null);
         }
+    }, [modePickerProfile, childProfileToken, router]);
+
+    /* ---- Mode picker: Chat ---- */
+    const handleChatMode = useCallback(() => {
+        if (!modePickerProfile || !childProfileToken) return;
+        sessionStorage.setItem(
+            "sakhi_chat_session",
+            JSON.stringify({
+                child_name: modePickerProfile.display_name,
+                profile_token: childProfileToken,
+            })
+        );
+        setModePickerProfile(null);
+        router.push("/chat");
     }, [modePickerProfile, childProfileToken, router]);
 
     /* ---- Mode picker: Story ---- */
@@ -493,6 +522,7 @@ export default function ProfilesPage() {
                 <ModePickerModal
                     childName={modePickerProfile.display_name}
                     onVoice={handleVoiceMode}
+                    onChat={handleChatMode}
                     onStory={handleStoryMode}
                     onCancel={() => setModePickerProfile(null)}
                     isLoading={!!enteringId}
